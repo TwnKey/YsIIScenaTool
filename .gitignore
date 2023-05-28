@@ -1,0 +1,13 @@
+
+*.tlog
+*.enc
+*.obj
+*.log
+*.idb
+*.pdb
+*.ilk
+*.exe
+*.ipch
+*.opendb
+*.db
+.vs/YsIIScenaTool/v16/.suo

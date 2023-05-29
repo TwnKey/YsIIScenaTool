@@ -6,6 +6,7 @@
 #include <fstream>
 #include <algorithm>
 #include "Parser.h"
+#include "Writer.h"
 int main(int argc, char* argv[])
 {
 	if (argc == 2) {
@@ -13,7 +14,16 @@ int main(int argc, char* argv[])
 		
 		Parser p(path);
 		p.decrypt();
-		std::vector<Translation> TLs = p.extract_TL();
-		WriteTLstoFile(TLs);
+		p.extract_TL();
+		WriteTLstoFile(p.TLs);
+	}
+	else if (argc == 3) {
+		std::string csv_path = argv[1];
+		std::string original_file = argv[2];
+		Writer w(csv_path);
+		w.InsertTL(original_file);
+		w.encrypt();
+		w.WriteBinaryFile();
+	
 	}
 }

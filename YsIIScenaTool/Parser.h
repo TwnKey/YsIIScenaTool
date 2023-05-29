@@ -6,6 +6,19 @@
 #include <iostream>
 #include <fstream>
 #include "Translation.h"
+
+
+struct pointer {
+
+	uint32_t loc = -1;
+	uint32_t dest = -1;
+	uint32_t offset = 0;
+	bool operator<(const pointer& a) const
+	{
+		return (offset + dest) < (a.offset + a.dest);
+	}
+};
+
 class Parser
 {
 
@@ -13,6 +26,9 @@ public:
 
 	unsigned int internal_addr = 0;
 	std::vector<uint8_t> content = {};
+	std::vector<uint32_t> text_addrs = {};
+	std::vector<Translation> TLs = {};
+	std::vector<pointer> pointeurs = {};
 
 	Parser(std::string path)
 	{
@@ -31,7 +47,8 @@ public:
 	uint32_t read_u32_at(uint32_t addr);
 	std::string read_str_at(uint32_t addr);
 	uint16_t read_u16_at(uint32_t addr);
-	std::vector<Translation> extract_TL();
-
+	void extract_TL();
+	void GetAllPtrsFromSection(int i);
+	void AddTL();
 
 };

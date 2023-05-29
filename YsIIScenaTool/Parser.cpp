@@ -1,5 +1,7 @@
 #include "Parser.h"
 #include <fstream>
+#include <algorithm>
+
 //Copied from Darkmet's text decryption
 void Parser::decrypt()
 {
@@ -66,9 +68,32 @@ uint16_t Parser::read_u16_at(uint32_t addr) {
 	return out;
 }
 
+void Parser::GetAllPtrsFromSection(int i) {
+	uint32_t origaddr = this->internal_addr;
+	uint32_t addr_sect_i_start = read_u32_at(0xC + 0x4 * (i)) + 8;
+	size_t count_sect_i = read_u16_at(addr_sect_i_start - 6);
+	uint32_t addr_sect_i_ptr_end = addr_sect_i_start + 4 * count_sect_i;
 
-std::vector<Translation> Parser::extract_TL() {
-	std::vector<Translation> TLs = {};
+	pointer ptr_sect = { 0xC + 0x4 * (i), addr_sect_i_start - 8, 0};
+	this->pointeurs.push_back(ptr_sect);
+
+	this->internal_addr = addr_sect_i_start;
+	for (unsigned int j = 0; j < count_sect_i; j++) {
+		uint32_t loc = this->internal_addr;
+		uint32_t dest = read_u32();
+		pointer ptr = { loc, dest, addr_sect_i_ptr_end };
+		this->pointeurs.push_back(ptr);
+	}
+	this->internal_addr = origaddr;
+}
+void Parser::extract_TL() {
+
+	GetAllPtrsFromSection(0);
+	GetAllPtrsFromSection(1);
+	GetAllPtrsFromSection(2);
+	GetAllPtrsFromSection(3);
+	GetAllPtrsFromSection(4);
+	GetAllPtrsFromSection(5);
 
 	uint32_t addr_sect_2_start = read_u32_at(0xC + 0x4 * 1) + 8;
 	size_t count_sect_2 = read_u16_at(addr_sect_2_start - 6);
@@ -87,6 +112,7 @@ std::vector<Translation> Parser::extract_TL() {
 	std::vector<uint8_t> op_codes = {};
 	while (ptr_addr < addr_sect_2_ptr_end) {
 		this->internal_addr = read_u32_at(ptr_addr) + addr_sect_2_ptr_end;
+		//std::cout << std::hex << ptr_addr << " " << this->internal_addr << std::endl;
 		ptr_addr += 4;
 		uint8_t op_code = content[this->internal_addr];
 		uint8_t cntt;
@@ -194,9 +220,8 @@ std::vector<Translation> Parser::extract_TL() {
 				this->internal_addr += 5;
 				break;
 			case 0x51:
-				orig_addr = this->internal_addr;
-				text = read_str();
-				TLs.push_back(Translation(orig_addr, text, ""));
+
+				AddTL();
 				
 				break;
 			case 0x11:
@@ -319,15 +344,11 @@ std::vector<Translation> Parser::extract_TL() {
 				text = read_str();
 				break;
 			case 0xDB:
-				orig_addr = this->internal_addr;
-				text = read_str();
-				TLs.push_back(Translation(orig_addr, text, ""));
+				AddTL();
 				break;
 			case 0x52:
 				this->internal_addr += 2;
-				orig_addr = this->internal_addr;
-				text = read_str();
-				TLs.push_back(Translation(orig_addr, text, ""));
+				AddTL();
 				this->internal_addr += 2;
 				break;
 			case 0x76:
@@ -407,14 +428,23 @@ std::vector<Translation> Parser::extract_TL() {
 		if ((type & 0x1000) != 0) {
 			offset = offset + 4;
 		}
-
-		std::string text = read_str_at(this->internal_addr + offset + 4);
-		TLs.push_back(Translation(this->internal_addr + offset + 4, text, ""));
+		this->internal_addr = this->internal_addr + offset + 4;
+		AddTL();
+		//TLs.push_back(Translation(this->internal_addr + offset + 4, text, ""));
 
 	}
 	
-	return TLs;
+
+	std::sort(this->pointeurs.begin(), this->pointeurs.end());
+	
 
 }
 
 
+void Parser::AddTL() {
+	uint32_t orig_addr = this->internal_addr;
+	std::string text = read_str();
+	TLs.push_back(Translation(orig_addr, text, ""));
+	text_addrs.push_back(orig_addr);
+
+}

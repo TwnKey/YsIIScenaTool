@@ -1,5 +1,5 @@
 # YsIIScenaTool
-Basic tool to edit the ys2_libre.ys2 file from Ys II Chronicles.
+Basic tool to edit the text within ys2_libre.ys2 file from Ys II Chronicles. 
 
 I'm not 100% sure it works at the moment. Using empty dialogs softlocks the game but it seems to run fine if there is a text to display.
 It's possible there are pointers within the script code (outside the pointers sections), I'll try to add them whenever I find them (extremely simple).  

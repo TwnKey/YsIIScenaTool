@@ -1,7 +1,6 @@
 #include "Parser.h"
 #include <fstream>
 #include <algorithm>
-
 //Copied from Darkmet's text decryption
 void Parser::decrypt()
 {
@@ -98,7 +97,7 @@ void Parser::extract_TL() {
 	uint32_t addr_sect_2_start = read_u32_at(0xC + 0x4 * 1) + 8;
 	size_t count_sect_2 = read_u16_at(addr_sect_2_start - 6);
 	uint32_t addr_sect_2_ptr_end = addr_sect_2_start + 4 * count_sect_2;
-	uint32_t addr_sect_2_end = read_u32_at(0xC + 0x4 * 2) + 8;
+	uint32_t addr_sect_2_end = read_u32_at(0xC + 0x4 * 2);
 	
 	uint32_t addr_sect_5_start = read_u32_at(0xC + 0x4 * 5) + 8;
 	size_t count_sect_5 = read_u16_at(addr_sect_5_start - 6);
@@ -110,16 +109,18 @@ void Parser::extract_TL() {
 	
 	size_t id = 0; //tableau de fonctions à 0x4fad30, lecture de l'op code à 4636FE
 	std::vector<uint8_t> op_codes = {};
-	while (ptr_addr < addr_sect_2_ptr_end) {
+	//while (ptr_addr < addr_sect_2_ptr_end) {
 		this->internal_addr = read_u32_at(ptr_addr) + addr_sect_2_ptr_end;
-		//std::cout << std::hex << ptr_addr << " " << this->internal_addr << std::endl;
+		//"C:\Users\Administrator\Downloads\googletrad.csv" 
 		ptr_addr += 4;
 		uint8_t op_code = content[this->internal_addr];
 		uint8_t cntt;
 		uint16_t wd;
 		uint32_t orig_addr;
 		std::string text;
-		while (op_code != 1) {
+		std::cout << "new function " << std::hex << this->internal_addr << std::endl;
+		while (true) { //returns can happen in the middle of the function!!!
+			std::cout << std::hex << (int) op_code << " " << this->internal_addr << std::endl;
 			this->internal_addr++;
 			switch (op_code) {
 			case 0x02:
@@ -134,6 +135,7 @@ void Parser::extract_TL() {
 			case 0x17:
 			case 0x18:
 			case 0x21:
+			case 0x23:
 			case 0x3E:
 			case 0x62:
 			case 0x63:
@@ -143,10 +145,7 @@ void Parser::extract_TL() {
 			case 0x79:
 			case 0x7A:
 			case 0x83:
-			case 0xA0:
 			case 0xA9:
-			case 0xD2:
-			case 0xD3:
 			case 0xD5:
 			case 0xD7:
 				this->internal_addr += 2;
@@ -186,6 +185,7 @@ void Parser::extract_TL() {
 			case 0xC7:
 			case 0xC8:
 			case 0xD1:
+			case 0x01:
 				break;
 			case 0x38:
 			case 0x39:
@@ -197,12 +197,16 @@ void Parser::extract_TL() {
 			case 0xB6:
 			case 0x9E:
 			case 0x9F:
+			case 0xA0:
 			case 0xAC:
 			case 0xB1:
 			case 0xB5:
 			case 0xB8:
 			case 0xBD:
 			case 0xBE:
+			case 0xC0:
+			case 0xD2:
+			case 0xD3:
 			case 0xD6:
 				this->internal_addr += 3;
 				break;
@@ -211,7 +215,6 @@ void Parser::extract_TL() {
 				break;
 			case 0x3A:
 			case 0x3D:
-			case 0x58:
 			case 0xB7:
 			case 0xC1:
 				this->internal_addr += 1;
@@ -230,9 +233,14 @@ void Parser::extract_TL() {
 			case 0x60:
 			case 0x61:
 			case 0x6F:
-			case 0xB3:
 			case 0xB4:
 			case 0xD0:
+				cntt = content[this->internal_addr++];
+				for (unsigned int i = 0; i < cntt; i++)
+					this->internal_addr += 2;
+				break;
+			case 0xB3:
+				this->internal_addr++;
 				cntt = content[this->internal_addr++];
 				for (unsigned int i = 0; i < cntt; i++)
 					this->internal_addr += 2;
@@ -247,6 +255,7 @@ void Parser::extract_TL() {
 				break;
 			case 0x0F:
 			case 0x12:
+			case 0x20:
 			case 0x34:
 			case 0x3F:
 			case 0x57:
@@ -266,6 +275,7 @@ void Parser::extract_TL() {
 			case 0x84:
 			case 0x87:
 			case 0x88:
+			case 0x89:
 			case 0x8A:
 			case 0x8B:
 			case 0x8C:
@@ -287,6 +297,7 @@ void Parser::extract_TL() {
 				this->internal_addr += 5;
 				break;
 			case 0x22:
+			case 0x2B:
 			case 0x31:
 			case 0x50:
 			case 0x35:
@@ -302,9 +313,9 @@ void Parser::extract_TL() {
 				break;
 			case 0x95:
 			case 0xAB:
-			case 0xC2:
 			case 0xCB:
 			case 0xCC:
+			case 0xD4:
 				this->internal_addr += 8;
 				break;
 			case 0x25:
@@ -321,6 +332,8 @@ void Parser::extract_TL() {
 			case 0x9D:
 				this->internal_addr += 14;
 				break;
+
+			case 0x58:
 			case 0x59:
 				this->internal_addr += 16;
 				break;
@@ -365,11 +378,11 @@ void Parser::extract_TL() {
 
 						if (wd == 3) {
 							this->internal_addr += 4;
-							i += 4;
+							i += 2;
 						}
 						else if (wd == 2) {
 							this->internal_addr += 4;
-							i += 4;
+							i += 2;
 						}
 						else {
 
@@ -379,27 +392,31 @@ void Parser::extract_TL() {
 				}
 
 				break;
+			case 0xC2:
+				this->internal_addr += 32;
+				break;
 			default:
 				if (op_code > 220)
 				{
 				}
 				else {
-					/*std::cout << std::hex << this->internal_addr << " dec " << std::dec << (int)op_code << " hex " << std::hex << (int)op_code << std::endl;
+					std::cout << std::hex << this->internal_addr << " dec " << std::dec << (int)op_code << " hex " << std::hex << (int)op_code << std::endl;
 					std::sort(op_codes.begin(), op_codes.end());
 					op_codes.erase(std::unique(op_codes.begin(), op_codes.end()), op_codes.end());
 					float prog = 100 * (float)op_codes.size() / 220;
-					std::cout << op_codes.size() << " " << prog << "%" << std::endl;*/
+					std::cout << op_codes.size() << " " << prog << "%" << std::endl;
 					throw(std::exception("unknown op code"));
 				}
 				{}
 			}
 
 			op_codes.push_back(op_code);
+			if (this->internal_addr >= addr_sect_2_end) break;
 			op_code = content[this->internal_addr];
 		}
-		id++;
+		//id++;
 
-	}
+	//}
 	ptr_addr = addr_sect_5_start;
 	while (ptr_addr < addr_sect_5_ptr_end) {
 
@@ -442,8 +459,12 @@ void Parser::extract_TL() {
 
 
 void Parser::AddTL() {
+
+	
+
 	uint32_t orig_addr = this->internal_addr;
 	std::string text = read_str();
+
 	TLs.push_back(Translation(orig_addr, text, ""));
 	text_addrs.push_back(orig_addr);
 

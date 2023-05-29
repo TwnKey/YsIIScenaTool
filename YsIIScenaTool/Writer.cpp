@@ -55,7 +55,7 @@ void Writer::ReadCSV(std::string path) {
 			continue;
 		}
 
-		escaped_list_separator<char> sep("\\", ";", "\"");
+		escaped_list_separator<char> sep("\\", ",", "\"");
 
 		Tokenizer tok(line, sep);
 
@@ -68,7 +68,7 @@ void Writer::ReadCSV(std::string path) {
 		std::string tl = (*it++);
 		std::string comment = (*it++);
 		uint32_t addr = -1;// std::atoi(addr_str.c_str());
-		//std::cout << addr_str << " " << orig << " " << tl << std::endl;
+		std::cout << tl << std::endl;
 		Translation TL(addr, orig, tl);
 
 		TLs.push_back(TL);
@@ -275,9 +275,7 @@ void Writer::InsertTL(std::string path_original_file) {
 		std::vector<uint8_t> orig_text = std::vector<uint8_t>(this->content.begin() + txt_addr, this->content.begin() + txt_addr + sz);
 		std::vector<uint8_t> new_text_bytes = EncodeStr(TLs[text_idx].translation);
 		this->content.erase(this->content.begin() + txt_addr, this->content.begin() + txt_addr + sz);
-		
-		if (new_text_bytes.size() > 1)
-			int a = 2;//new_text_bytes = orig_text;
+		std::cout << TLs[text_idx].translation << std::endl;
 		this->content.insert(this->content.begin() + txt_addr, new_text_bytes.begin(), new_text_bytes.end());
 		global_offset = global_offset + new_text_bytes.size() - sz;
 		text_idx++;

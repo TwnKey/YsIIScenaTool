@@ -55,7 +55,7 @@ void Writer::ReadCSV(std::string path) {
 			continue;
 		}
 
-		escaped_list_separator<char> sep("\\", ",", "\"");
+		escaped_list_separator<char> sep("\\", ";", "\"");
 
 		Tokenizer tok(line, sep);
 
@@ -97,6 +97,16 @@ void Writer::ReplaceIntAtIndex(uint32_t addr, uint32_t i) {
 	for (int idx = 0; idx < 4; idx++)
 		this->content[addr +idx] = dest_b[idx];
 
+
+
+}
+void Writer::ReplaceShortAtIndex(uint32_t addr, uint16_t s) {
+
+	std::vector<uint8_t> res(2);
+	for (int i = 0; i < 2; i++) res[i] = ((s & (0xFF << (8 * i))) >> 8 * (i));
+
+	for (int idx = 0; idx < 2; idx++)
+		this->content[addr + idx] = res[idx];
 
 
 }
@@ -238,6 +248,7 @@ void Writer::InsertTL(std::string path_original_file) {
 	this->content = p.content;
 
 	unsigned int idx_current_ptr = 0;
+	unsigned int idx_current_jmp = 0;
 	unsigned int text_idx = 0;
 	uint32_t global_offset = 0;
 
@@ -249,14 +260,20 @@ void Writer::InsertTL(std::string path_original_file) {
 			idx_current_ptr++;
 			ReplaceIntAtIndex(ptr.loc, (ptr.dest + ptr.offset) + global_offset); //we're storing the absolute value of the pointer here, we will deal with it later
 		}
-
+		for (int i = idx_current_jmp; i < p.jumps.size(); i++) {
+			
+			if (p.jumps[i].addr > txt_addr)
+				break;
+			idx_current_jmp++;
+			p.jumps[i].addr = p.jumps[i].addr + global_offset;
+		}
 		size_t sz = CountTextBytes(this->content, txt_addr);
 		std::vector<uint8_t> orig_text = std::vector<uint8_t>(this->content.begin() + txt_addr, this->content.begin() + txt_addr + sz);
 
 		std::vector<uint8_t> new_text_bytes = EncodeStr(TLs[text_idx].translation);
 
-		/*if (new_text_bytes.size() == 1)
-			new_text_bytes = orig_text;*/
+		if (new_text_bytes.size() == 1)
+			new_text_bytes = orig_text;
 		global_offset = global_offset + new_text_bytes.size() - sz;
 		text_idx = text_idx + 1;
 	}
@@ -267,6 +284,8 @@ void Writer::InsertTL(std::string path_original_file) {
 	text_idx = 0;
 	// then we insert the new bytes
 	for (auto txt_addr : p.text_addrs) {
+		/*if (txt_addr == 0x14958)
+			int a = 2;*/
 		txt_addr = txt_addr + global_offset;
 
 
@@ -275,7 +294,9 @@ void Writer::InsertTL(std::string path_original_file) {
 		std::vector<uint8_t> orig_text = std::vector<uint8_t>(this->content.begin() + txt_addr, this->content.begin() + txt_addr + sz);
 		std::vector<uint8_t> new_text_bytes = EncodeStr(TLs[text_idx].translation);
 		this->content.erase(this->content.begin() + txt_addr, this->content.begin() + txt_addr + sz);
-		std::cout << TLs[text_idx].translation << std::endl;
+		
+		if (new_text_bytes.size() == 1)
+			new_text_bytes = orig_text;
 		this->content.insert(this->content.begin() + txt_addr, new_text_bytes.begin(), new_text_bytes.end());
 		global_offset = global_offset + new_text_bytes.size() - sz;
 		text_idx++;
@@ -293,6 +314,29 @@ void Writer::InsertTL(std::string path_original_file) {
 			ReplaceIntAtIndex(sec_start + 0x4 * j, absolute - end);
 		}
 	}
+
+	//deal with the jumps within the script code
+	std::sort(p.jumps.begin(), p.jumps.end(), compare_id);
+	for (unsigned int jmp_idx = 0; jmp_idx < p.jumps.size() / 2; jmp_idx++) {
+		jump jmpA = p.jumps[2 * jmp_idx];
+		jump jmpB = p.jumps[2 * jmp_idx + 1];
+		
+		if (jmpA.dest) {
+			uint16_t old = ReadU16(this->content, jmpB.addr);
+			if (old != jmpA.addr - jmpB.addr)
+				int a = 2;
+			ReplaceShortAtIndex(jmpB.addr, jmpA.addr - jmpB.addr);
+		}
+		else {
+			uint16_t old = ReadU16(this->content, jmpA.addr);
+			if (old != jmpB.addr - jmpA.addr)
+				int a = 2;
+			ReplaceShortAtIndex(jmpA.addr, jmpB.addr - jmpA.addr);
+		}
+
+	}
+
+
 	//Finally we fix the string length in the last section (not sure why it is even needed lol?)
 
 	uint32_t addr_sect_5_start = ReadPtr(this->content, 0xC + 0x4 * 5) + 8;

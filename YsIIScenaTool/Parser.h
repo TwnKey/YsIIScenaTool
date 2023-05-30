@@ -7,6 +7,17 @@
 #include <fstream>
 #include "Translation.h"
 
+struct jump {
+
+	uint32_t addr = -1;
+	uint32_t id = -1;
+	bool dest = false;
+	size_t encoded_size = 1;
+	
+};
+
+bool compare_addr(const jump& a, const jump& b);
+bool compare_id(const jump& a, const jump& b);
 
 struct pointer {
 
@@ -29,6 +40,7 @@ public:
 	std::vector<uint32_t> text_addrs = {};
 	std::vector<Translation> TLs = {};
 	std::vector<pointer> pointeurs = {};
+	std::vector<jump> jumps = {};
 
 	Parser(std::string path)
 	{
@@ -50,5 +62,6 @@ public:
 	void extract_TL();
 	void GetAllPtrsFromSection(int i);
 	void AddTL();
+	void AddJump();
 
 };

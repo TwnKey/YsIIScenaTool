@@ -15,6 +15,7 @@ class Writer
 		}
 		void ReadCSV(std::string path);
 		void ReplaceIntAtIndex(uint32_t addr, uint32_t i);
+		void ReplaceShortAtIndex(uint32_t addr, uint16_t s);
 		void InsertTL(std::string path_original_file);
 		void WriteBinaryFile();
 };

@@ -1,6 +1,17 @@
 #include "Parser.h"
 #include <fstream>
 #include <algorithm>
+
+bool compare_addr(const jump& a, const jump& b)
+{
+	return a.addr < b.addr;
+}
+bool compare_id(const jump& a, const jump& b)
+{
+	return a.id < b.id;
+}
+
+
 //Copied from Darkmet's text decryption
 void Parser::decrypt()
 {
@@ -118,14 +129,17 @@ void Parser::extract_TL() {
 		uint16_t wd;
 		uint32_t orig_addr;
 		std::string text;
-		std::cout << "new function " << std::hex << this->internal_addr << std::endl;
+		//std::cout << "new function " << std::hex << this->internal_addr << std::endl;
 		while (true) { //returns can happen in the middle of the function!!!
-			std::cout << std::hex << (int) op_code << " " << this->internal_addr << std::endl;
+			/*if ((this->internal_addr > 0x14000) && (this->internal_addr < 0x15000))
+				std::cout << std::hex << (int) op_code << " " << this->internal_addr << std::endl;*/
 			this->internal_addr++;
 			switch (op_code) {
+			case 0x04:
+				AddJump();
+				break;
 			case 0x02:
 			case 0x03:
-			case 0x04:
 			case 0x05:
 			case 0x06:
 			case 0x07:
@@ -453,7 +467,7 @@ void Parser::extract_TL() {
 	
 
 	std::sort(this->pointeurs.begin(), this->pointeurs.end());
-	
+	std::sort(this->jumps.begin(), this->jumps.end(), compare_addr);
 
 }
 
@@ -467,5 +481,14 @@ void Parser::AddTL() {
 
 	TLs.push_back(Translation(orig_addr, text, ""));
 	text_addrs.push_back(orig_addr);
+
+}
+void Parser::AddJump() {
+
+	uint32_t from_addr = this->internal_addr;
+	uint16_t wd = this->read_u16();
+	uint32_t jp_id = this->jumps.size();
+	this->jumps.push_back({ from_addr, jp_id, false, 2 });
+	this->jumps.push_back({ from_addr + wd, jp_id, true, 2 });
 
 }

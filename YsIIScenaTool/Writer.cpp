@@ -9,6 +9,7 @@
 #include "Parser.h"
 #include <map>
 #include <sstream>
+#include <utf8/utf8.h>
 
 std::map<int, int> encoding_map;
 
@@ -218,11 +219,12 @@ std::vector<uint8_t> EncodeStr(std::string text) {
 
 			if ((((unsigned char)chr) >= 0x80)) {
 				nb_bytes = 2;
-				bytes_to_reencode.push_back((unsigned char)next_chr);
 				bytes_to_reencode.push_back((unsigned char)chr);
+				bytes_to_reencode.push_back((unsigned char)next_chr);
 				idx_letter += 1;
-				int characterUTF8 = vectorToInt(bytes_to_reencode);
-				int correspondingSJIS = encoding_map[characterUTF8];
+				std::vector<unsigned int> utf32line;
+				utf8::utf8to32(bytes_to_reencode.begin(), bytes_to_reencode.end(), back_inserter(utf32line));
+				int correspondingSJIS = encoding_map[utf32line[0]];
 				new_bytes = codeToByteArray(correspondingSJIS, nb_bytes);
 			}
 			else {
@@ -241,6 +243,7 @@ std::vector<uint8_t> EncodeStr(std::string text) {
 
 
 void Writer::InsertTL(std::string path_original_file) {
+	build_character_encoding();
 	Parser p(path_original_file);
 	p.decrypt();
 	p.extract_TL();

@@ -12,75 +12,75 @@
 #include <utf8/utf8.h>
 
 std::map<int, int> encoding_map;
-
 void Writer::ReadCSV(std::string path) {
-
 	using namespace std;
 	using namespace boost;
-	//Bien veiller à ce que l'encoding du csv soit en UTF 8 sinon c'est la galère :!!!!!!!!!zedem:fzmef:
 
 	typedef tokenizer<escaped_list_separator<char>> Tokenizer;
 
 	TLs.clear();
-	std::ifstream file(path);
-	std::string str, line;
-	
+	ifstream file(path);
+	if (!file.is_open()) {
+		cerr << "Failed to open file: " << path << endl;
+		return;
+	}
+
+	string str, line;
 	int row_cnt = 0;
-	bool inside_quotes(false);
-	size_t last_quote(0);
+	bool inside_quotes = false;
+	size_t last_quote = 0;
 
-	while (std::getline(file, str)) {
+	while (getline(file, str)) {
 		row_cnt++;
-		
+
 		last_quote = str.find_first_of('"');
-		while (last_quote != std::string::npos)
-		{
-			if (last_quote > 0) {
-				if (str.at(last_quote - 1) != '\\')
-
-				{
-					inside_quotes = !inside_quotes;
-				}
+		while (last_quote != string::npos) {
+			if (last_quote > 0 && str.at(last_quote - 1) != '\\') {
+				inside_quotes = !inside_quotes;
 			}
-			else inside_quotes = !inside_quotes;
-
+			else if (last_quote == 0) {
+				inside_quotes = !inside_quotes;
+			}
 			last_quote = str.find_first_of('"', last_quote + 1);
 		}
 
-
-		line.append(str);
-
-		if (inside_quotes)
-		{
-			line.append("\n");
+		if (inside_quotes) {
+			line.append(str).append("\n");
 			continue;
+		}
+		else {
+			line.append(str);
 		}
 
 		escaped_list_separator<char> sep("\\", ";", "\"");
 
-		Tokenizer tok(line, sep);
+		try {
+			Tokenizer tok(line, sep);
+			auto it = tok.begin();
 
-		
-		int start = 0;
-		auto it = tok.begin();
+			if (it != tok.end()) {
+				string addr_str = (*it++);
+				string orig = (it != tok.end()) ? (*it++) : "";
+				string tl = (it != tok.end()) ? (*it++) : "";
+				string comment = (it != tok.end()) ? (*it++) : "";
 
-		std::string addr_str = (*it++);
-		std::string orig = (*it++);
-		std::string tl = (*it++);
-		std::string comment = (*it++);
-		uint32_t addr = -1;// std::atoi(addr_str.c_str());
-		std::cout << tl << std::endl;
-		Translation TL(addr, orig, tl);
+				uint32_t addr = -1; // or convert addr_str to uint32_t
+				cout << row_cnt << ": " << addr_str << ", " << orig << ", " << tl << ", " << comment << endl;
 
-		TLs.push_back(TL);
+				Translation TL(addr, orig, tl);
+				TLs.push_back(TL);
+			}
+			else {
+				cerr << "Warning: Tokenizer found no tokens on line " << row_cnt << endl;
+			}
+		}
+		catch (const boost::escaped_list_error& e) {
+			cerr << "Error parsing line " << row_cnt << ": " << e.what() << endl;
+			cerr << "Line content: " << line << endl;
+		}
 
 		line.clear();
-
-
 	}
-
-
-
 }
 
 
@@ -196,9 +196,12 @@ void build_character_encoding() {
 std::vector<uint8_t> EncodeStr(std::string text) {
 	std::vector<unsigned char> bytes;
 	char next_chr;
+	std::cout << "REINSERTING: " << text << std::endl;
+
 	for (int idx_letter = 0; idx_letter < text.length(); idx_letter++) {
 		char chr = text.at(idx_letter);
 		if (idx_letter + 1 < text.length()) next_chr = text.at(idx_letter + 1);
+
 		if (chr == '\\') {
 			if (next_chr == 'x') {
 				std::string hex_string = text.substr(idx_letter + 2, 2);
@@ -215,31 +218,58 @@ std::vector<uint8_t> EncodeStr(std::string text) {
 		else {
 			std::vector<unsigned char> bytes_to_reencode;
 			std::vector<unsigned char> new_bytes;
-			int nb_bytes;
+			int nb_bytes = 1;
 
-			if ((((unsigned char)chr) >= 0x80)) {
-				nb_bytes = 2;
-				bytes_to_reencode.push_back((unsigned char)chr);
-				bytes_to_reencode.push_back((unsigned char)next_chr);
-				idx_letter += 1;
+			unsigned char leading_byte = static_cast<unsigned char>(chr);
+
+			// Check if the leading byte indicates a multi-byte UTF-8 sequence
+			if (leading_byte >= 0xC0) {
+				// Determine the number of bytes in the UTF-8 sequence
+				if (leading_byte >= 0xC0 && leading_byte <= 0xDF) {
+					nb_bytes = 2;
+				}
+				else if (leading_byte >= 0xE0 && leading_byte <= 0xEF) {
+					nb_bytes = 3;
+				}
+				else if (leading_byte >= 0xF0 && leading_byte <= 0xF7) {
+					nb_bytes = 4;
+				}
+				else {
+					// Invalid leading byte for a UTF-8 sequence
+					continue;
+				}
+
+				// Collect the UTF-8 bytes
+				bytes_to_reencode.push_back(leading_byte);
+				for (int i = 1; i < nb_bytes; ++i) {
+					if (idx_letter + i < text.length()) {
+						bytes_to_reencode.push_back(static_cast<unsigned char>(text.at(idx_letter + i)));
+					}
+				}
+
+				// Move the index to the end of the multi-byte sequence
+				idx_letter += (nb_bytes - 1);
+
+				// Convert to UTF-32
 				std::vector<unsigned int> utf32line;
-				utf8::utf8to32(bytes_to_reencode.begin(), bytes_to_reencode.end(), back_inserter(utf32line));
-				int correspondingSJIS = encoding_map[utf32line[0]];
-				new_bytes = codeToByteArray(correspondingSJIS, nb_bytes);
+				utf8::utf8to32(bytes_to_reencode.begin(), bytes_to_reencode.end(), std::back_inserter(utf32line));
+
+				if (!utf32line.empty()) {
+					int correspondingSJIS = encoding_map[utf32line[0]];
+					new_bytes = codeToByteArray(correspondingSJIS, nb_bytes);
+				}
 			}
 			else {
-				nb_bytes = 1;
-				new_bytes.push_back((unsigned char)chr);
+				new_bytes.push_back(leading_byte);
 			}
+
 			bytes.insert(bytes.end(), new_bytes.begin(), new_bytes.end());
 		}
-
-
 	}
+
 	bytes.push_back(0);
 	return bytes;
 }
-
 
 
 void Writer::InsertTL(std::string path_original_file) {

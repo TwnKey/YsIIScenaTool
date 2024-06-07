@@ -256,7 +256,7 @@ std::vector<uint8_t> EncodeStr(std::string text) {
 
 				if (!utf32line.empty()) {
 					int correspondingSJIS = encoding_map[utf32line[0]];
-					new_bytes = codeToByteArray(correspondingSJIS, nb_bytes);
+					new_bytes = codeToByteArray(correspondingSJIS, 2);
 				}
 			}
 			else {
@@ -302,7 +302,7 @@ void Writer::InsertTL(std::string path_original_file) {
 		}
 		size_t sz = CountTextBytes(this->content, txt_addr);
 		std::vector<uint8_t> orig_text = std::vector<uint8_t>(this->content.begin() + txt_addr, this->content.begin() + txt_addr + sz);
-
+		
 		std::vector<uint8_t> new_text_bytes = EncodeStr(TLs[text_idx].translation);
 
 		if (new_text_bytes.size() == 1)

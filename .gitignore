@@ -11,3 +11,9 @@
 *.opendb
 *.db
 .vs/YsIIScenaTool/v16/.suo
+*.recipe
+*.iobj
+*.ipdb
+*.txt
+*.ys2_TLed
+*.ys2
